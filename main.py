@@ -1,6 +1,5 @@
 # ==========================================
-# CineMaster - AI 影视工业级分镜系统 (Mac 现代化版)
-# 基于 CustomTkinter，完美解决 Mac 排版变形问题
+# CineMaster - AI 影视工业级分镜系统 (Mac 现代化版 - 带激活码)
 # ==========================================
 
 import tkinter as tk
@@ -12,6 +11,11 @@ import requests
 import time
 import json
 import platform
+import uuid
+import hmac
+import hashlib
+import base64
+import os
 from PIL import Image, ImageTk
 import customtkinter as ctk
 
@@ -37,7 +41,85 @@ FONT_TITLE = (SYS_FONT, 20, "bold")
 FONT_BTN = (SYS_FONT, 16)
 
 # ==========================================
-# 核心上下文 (保持原样)
+# 激活码验证系统
+# ==========================================
+SECRET_KEY = "Storyboard_2024_Super_Secret_Key!@#"
+LICENSE_FILE = "license.dat"
+
+def get_machine_code():
+    # 获取网卡 MAC 地址作为机器码
+    return str(uuid.getnode())
+
+def verify_license(code, machine_code):
+    try:
+        decoded_bytes = base64.b64decode(code)
+        msg_bytes, received_hmac = decoded_bytes.split(b"||")
+        expected_hmac = hmac.new(SECRET_KEY.encode('utf-8'), msg_bytes, hashlib.sha256).digest()
+        
+        if not hmac.compare_digest(received_hmac, expected_hmac):
+            return False, "签名验证失败，激活码无效"
+            
+        msg_str = msg_bytes.decode('utf-8')
+        mc, expiry_str = msg_str.split("|")
+        expiry = int(expiry_str)
+        
+        if mc != machine_code:
+            return False, "机器码不匹配，请确认本机机器码"
+        if time.time() > expiry:
+            return False, "激活码已过期"
+            
+        return True, "激活成功"
+    except Exception as e:
+        return False, "激活码格式错误"
+
+def save_license(code):
+    with open(LICENSE_FILE, "w") as f:
+        f.write(code)
+
+def load_license():
+    if os.path.exists(LICENSE_FILE):
+        with open(LICENSE_FILE, "r") as f:
+            return f.read().strip()
+    return None
+
+class ActivationWindow(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("软件激活")
+        self.geometry("450x400")
+        self.configure(fg_color=COLOR_BG)
+        self.grab_set() # 模态窗口，必须关闭才能操作主界面
+        
+        machine_code = get_machine_code()
+        
+        ctk.CTkLabel(self, text="CineMaster 软件激活", font=FONT_TITLE, text_color=COLOR_ACCENT).pack(pady=20)
+        
+        ctk.CTkLabel(self, text="本机机器码：", font=FONT_MAIN, text_color=COLOR_TEXT).pack(pady=(10, 0))
+        ctk.CTkLabel(self, text=machine_code, font=FONT_MAIN, text_color=COLOR_TEXT_DIM).pack(pady=5)
+        
+        ctk.CTkLabel(self, text="请输入激活码：", font=FONT_MAIN, text_color=COLOR_TEXT).pack(pady=(15, 0))
+        self.entry_code = ctk.CTkTextbox(self, height=100, font=FONT_MAIN, fg_color=COLOR_PANEL, text_color=COLOR_TEXT, border_width=0)
+        self.entry_code.pack(pady=5, padx=20, fill="x")
+        
+        ctk.CTkButton(self, text="激活软件", command=self.on_activate, font=FONT_BTN, fg_color=COLOR_ACCENT, text_color=COLOR_BG, height=40).pack(pady=20)
+        
+    def on_activate(self):
+        code = self.entry_code.get("1.0", "end").strip()
+        if not code:
+            messagebox.showwarning("提示", "请输入激活码！")
+            return
+            
+        mc = get_machine_code()
+        success, msg = verify_license(code, mc)
+        if success:
+            save_license(code)
+            messagebox.showinfo("成功", "激活成功！感谢使用 CineMaster。")
+            self.destroy()
+        else:
+            messagebox.showerror("失败", msg)
+
+# ==========================================
+# 核心上下文与业务逻辑 (完全保留)
 # ==========================================
 class AppContext:
     def __init__(self):
@@ -52,9 +134,6 @@ class AppContext:
     def push_ui_event(self, event_type, data=None):
         self.ui_event_queue.put({"type": event_type, "data": data})
 
-# ==========================================
-# 技能基类与功能逻辑 (完全保留原有功能)
-# ==========================================
 class BaseSkill:
     def __init__(self, ctx):
         self.ctx = ctx
@@ -331,7 +410,6 @@ class AppUI(ctk.CTk):
         self.combo_vid_res.set("720p")
         self.combo_vid_res.grid(row=0, column=5, padx=10)
 
-        # 参考图预览区域 (使用 CTkScrollableFrame 自动处理滚动)
         ctk.CTkLabel(tab, text="参考图预览:", font=FONT_MAIN, text_color=COLOR_TEXT).pack(anchor="w", padx=10, pady=(10, 0))
         self.frame_vid_ref_inner = ctk.CTkScrollableFrame(tab, fg_color=COLOR_PANEL, height=150)
         self.frame_vid_ref_inner.pack(fill="x", padx=10, pady=5)
@@ -491,7 +569,32 @@ def main():
     ctx = AppContext()
     agent = Agent(ctx)
     app = AppUI(ctx, agent)
-    app.mainloop()
+    app.withdraw() # 先隐藏主界面
+    
+    # 检查是否已激活
+    saved_code = load_license()
+    is_activated = False
+    if saved_code:
+        success, _ = verify_license(saved_code, get_machine_code())
+        if success:
+            is_activated = True
+            
+    if not is_activated:
+        act_win = ActivationWindow(app)
+        app.wait_window(act_win)
+        
+        # 激活窗口关闭后，再次检查是否激活成功
+        saved_code = load_license()
+        if saved_code:
+            success, _ = verify_license(saved_code, get_machine_code())
+            if success:
+                is_activated = True
+                
+    if is_activated:
+        app.deiconify() # 显示主界面
+        app.mainloop()
+    else:
+        app.quit() # 未激活直接退出
 
 if __name__ == "__main__":
     main()
