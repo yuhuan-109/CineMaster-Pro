@@ -21,9 +21,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install requests pillow pyinstaller
 
+    - name: List files (查看当前目录文件)
+      run: ls -la
+
     - name: Build macOS App
       run: |
-        pyinstaller --onefile --windowed main.py
+        pyinstaller --onefile --windowed --clean main.py
 
     - name: Zip the App
       run: |
