@@ -11,6 +11,7 @@ import io
 import requests
 import time
 import json
+import platform
 from PIL import Image, ImageTk
 
 # ==========================================
@@ -25,8 +26,14 @@ COLOR_SUCCESS = "#a6e3a1"
 COLOR_WARNING = "#f9e2af"
 COLOR_ERROR = "#f38ba8"
 
-FONT_MAIN = ("微软雅黑", 10)
-FONT_TITLE = ("微软雅黑", 14, "bold")
+# 自动判断系统，选择对应的中文字体，解决 Mac 排版崩溃问题
+if platform.system() == "Windows":
+    SYS_FONT = "微软雅黑"
+else:
+    SYS_FONT = "PingFang SC"  # Mac 系统的默认美观中文字体
+
+FONT_MAIN = (SYS_FONT, 10)
+FONT_TITLE = (SYS_FONT, 14, "bold")
 
 # ==========================================
 # 核心上下文
