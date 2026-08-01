@@ -26,7 +26,7 @@ COLOR_SUCCESS = "#a6e3a1"
 COLOR_WARNING = "#f9e2af"
 COLOR_ERROR = "#f38ba8"
 
-# 自动判断系统，选择对应的中文字体，解决 Mac 排版崩溃问题
+# 自动判断系统，选择对应的中文字体
 if platform.system() == "Windows":
     SYS_FONT = "微软雅黑"
 else:
@@ -580,10 +580,12 @@ def main():
     root.geometry("1280x800")
     root.minsize(1100, 700)
     
-    try:
-        root.iconbitmap("app.ico")
-    except:
-        pass
+    # Mac 上不加载 ico 图标，避免报错
+    if platform.system() == "Windows":
+        try:
+            root.iconbitmap("app.ico")
+        except:
+            pass
 
     ctx = AppContext()
     agent = Agent(ctx)
